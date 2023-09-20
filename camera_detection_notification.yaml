@@ -22,12 +22,7 @@ blueprint:
       selector:
         entity:
           domain: binary_sensor
-    vehicle_sensor:
-      name: Vehicle detection sensor
-      description: Binary sensor which is on when a vehicle is detected
-      selector:
-        entity:
-          domain: binary_sensor
+
     store_location:
       name: Folder to store snapshots in
       description: Folder within your www folder where snapshots should be stored. Do not include www directory.
@@ -44,14 +39,13 @@ blueprint:
           max: 300
           unit_of_measurement: seconds
     blocker_entity:
-      name: (OPTIONAL) Blocking entity
-      description: If this entity's state is on, it will prevent the automation from
-        running. E.g. sleepmode or away mode.
+      name: (OPTIONAL) Blocking person
+      description: If this person's state is home, it will prevent the automation from
+        running.
       default:
       selector:
         entity:
-          domain: binary_sensor
-  source_url: https://github.com/apollo1220/blueprints/blob/main/camera_detection_notification.yaml
+          domain: person
 mode: single
 max_exceeded: silent
 variables:
@@ -60,24 +54,24 @@ variables:
   blocker_entity: !input 'blocker_entity'
   no_motion_wait: !input 'no_motion_wait'
   store_location: !input 'store_location'
+  time_stamp: "{{ as_timestamp(states.binary_sensor.doorbell_motion_sensor.last_changed) }}"
+
+
 trigger:
-  - platform: state
-    entity_id: !input 'person_sensor'
-    from: 'off'
-    to: 'on'
-    id: 'person'
-  - platform: state
-    entity_id: !input 'vehicle_sensor'
-    from: 'off'
-    to: 'on'
-    id: 'vehicle'
+- platform: state
+  entity_id: !input person_sensor
+  from: 'off'
+  to: 'on'
+  id: person
 condition:
 - condition: template
-  value_template: '{{ (blocker_entity == none) or (states[blocker_entity].state == ''off'') }}'
+  value_template: '{{ (blocker_entity == none) or (states[blocker_entity].state !=
+    ''home'') }}'
+
 action:
 - service: camera.snapshot
   data:
-    filename: /config/www/{{store_location}}/{{ trigger.to_state.last_changed | as_timestamp | timestamp_custom("%Y-%m-%d_%H-%M-%S") }}.jpg
+    filename: /config/www/{{store_location}}/snapshot_{{ time_stamp }}.jpg
   target:
     entity_id: !input 'camera'
 - service: notify.mobile_app_{{ device_attr(notify_device, 'name').lower() |regex_replace(find=' ', replace='_', ignorecase=False) }}
@@ -85,7 +79,7 @@ action:
     title: Camera Detection
     message: "{{ state_attr(camera, 'friendly_name') }} has detected a {{trigger.id}}"
     data:
-      image: /local/{{store_location}}/{{ trigger.to_state.last_changed | as_timestamp | timestamp_custom("%Y-%m-%d_%H-%M-%S") }}.jpg
+      image: /local/{{store_location}}/snapshot_{{ time_stamp }}.jpg
       channel: Motion
       importance: high
       ttl: 0
