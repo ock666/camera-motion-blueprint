@@ -54,7 +54,7 @@ variables:
   blocker_entity: !input 'blocker_entity'
   no_motion_wait: !input 'no_motion_wait'
   store_location: !input 'store_location'
-  time_stamp: "{{ as_timestamp(states.binary_sensor.doorbell_motion_sensor.last_changed) }}"
+  time_stamp: "{{ now().timestamp() }}"
 
 
 trigger:
